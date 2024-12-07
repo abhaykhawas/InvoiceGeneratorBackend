@@ -20,6 +20,18 @@ const storeSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: new Date(),
+    },
+    invoiceFormat: {
+        type: Array,
+        required : false
+    },
+    productList: {
+        type: Array,
+        required : false
+    },
+    invoices : {
+        type: Array,
+        required: false
     }
 })
 
