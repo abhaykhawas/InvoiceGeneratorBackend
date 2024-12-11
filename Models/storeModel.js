@@ -32,6 +32,14 @@ const storeSchema = new mongoose.Schema({
     invoices : {
         type: Array,
         required: false
+    },
+    storeEmail : {
+        type: String,
+        required : true
+    },
+    storeMobile: {
+        type: String,
+        required : true
     }
 })
 

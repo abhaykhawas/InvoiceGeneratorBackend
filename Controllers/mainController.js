@@ -5,6 +5,7 @@ const {generateInvoiceSetId} = require('../util/invoiceSetId');
 const {generateProductSetId} = require('../util/productSetId');
 const {generatePdf, savePdfToMongoDB} = require('./test')
 const fs = require('fs');
+const { uploadPdfToGCS } = require('./test2')
 
 
 const mongoose = require('mongoose');
@@ -111,42 +112,37 @@ const SetProductList = async (req, res) => {
 // PUBLIC API
 const GenerateInvoice = async (req, res) => {
     try{
+        const { customerName, customerAddress, customerMobile, items } = req.body
+        const totalAmount = items.reduce((accumulator, currentValue) => accumulator + currentValue.price, 0);
+        const user = await User.findById(req.user_id)
+        const store = await Store.findById(new mongoose.Types.ObjectId(user.stores[0]))
+        invoice_id  = uuid.v4()
         data = {
-            "storeName" : 'ABC Store',
-            "storeEmail" : "someemail@mail.com",
-            "storeMobileNumber" : "+91 88998899775",
-            "customerName" : "John Doe",
+            "storeName" : store.storeName,
+            "storeEmail" : store.storeEmail,
+            "storeMobileNumber" : store.storeMobile,
+            "customerName" : customerName,
             "customerAddress" : "Manaitand, Dhanbad",
             "customerMobile" : '+91 78584924692',
-            "GSTIN" : "82096AAA456BAP",
-            "invoiceNumber" : "66AAPOP4582",
+            "GSTIN" : store.gstin,
+            "invoiceNumber" : invoice_id,
             "invoiceDate" : new Date().toLocaleDateString(),
-            "items" : [
-                { name: 'Laptop', price: 1200, qty: 1 },
-                    { name: 'Mouse', price: 25, qty: 2 },
-                    { name: 'Keyboard', price: 80, qty:2 }
-            ],
-            "totalAmount" : 1305,
-            "namePDF" : 'Invoice_001'
+            "items" : items,
+            "totalAmount" : totalAmount,
+            "namePDF" : `Invoice_${invoice_id}`
         }
+        
+        const result = await Store.updateOne(
+            { _id: (new mongoose.Types.ObjectId(user.stores[0])) },  // Filter by userId
+            { $push: { invoices:  invoice_id} }  // Push the new store to the stores array
+        );
         const pdfBuffer = await generatePdf(data);
-        await savePdfToMongoDB(pdfBuffer, new mongoose.Types.ObjectId('6753354baf0931707df2c723'), data.invoiceNumber)
-        const store = await Store.findById(new mongoose.Types.ObjectId('6753354baf0931707df2c723'));
-        console.log(store.invoices[0][0])
-        const buffer = Buffer.from(store.invoices[0][0], 'base64');
+        const bucketName = 'invoices-set1'; // Your Google Cloud Storage bucket name
+        const destinationBlobName = `Invoice_${req.user_id}/${invoice_id}.pdf`; 
 
-
-        const pdfHeader = buffer.toString('utf8', 0, 5);
-        console.log('PDF Header:', pdfHeader);  // Should print "%PDF-" if it's a valid PDF
-
-        // Write the buffer to a PDF file
-        fs.writeFile('output.pdf', buffer, (err) => {
-        if (err) {
-            console.error('Error writing PDF file:', err);
-        } else {
-            console.log('PDF file saved as output.pdf');
-        }
-        });
+        uploadPdfToGCS(pdfBuffer, bucketName, destinationBlobName)
+            .then(() => console.log('Upload complete!'))
+            .catch(err => console.error('Error uploading file:', err));
         
         res.status(200).json({"invoice": []})  
     }

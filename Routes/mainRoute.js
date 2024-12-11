@@ -10,6 +10,6 @@ router.post('/set-format', userVerfication, SetFormat)
 
 router.post('/set-product-list', userVerfication, SetProductList)
 
-router.post('/generate-invoice', GenerateInvoice)
+router.post('/generate-invoice', userVerfication, GenerateInvoice)
 
 module.exports = router;

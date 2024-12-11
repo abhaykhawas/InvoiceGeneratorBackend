@@ -10,7 +10,7 @@ async function generateHtml(mainData) {
     data = {
         "storeName" : mainData.storeName,
         "storeEmail" : mainData.storeEmail,
-        "storeMobileNumber" : mainData.storeMobileNumber,
+        "storeMobileNumber" : mainData.customerMobile,
         "customerName" : mainData.customerName,
         "customerAddress" : mainData.customerAddress,
         "customerMobile" : mainData.customerMobile,
@@ -24,7 +24,10 @@ async function generateHtml(mainData) {
     const templatePath = path.join(__dirname, 'new.ejs');
 
     // Read and compile the EJS template with data
+    console.log("HELLO")
     const html = await ejs.renderFile(templatePath, data);
+    console.log("HELLO1")
+    
     return html;
 }
 
