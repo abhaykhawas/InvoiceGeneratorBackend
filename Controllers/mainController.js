@@ -8,6 +8,7 @@ const fs = require('fs');
 const { uploadPdfToGCS } = require('./test2')
 
 
+
 const mongoose = require('mongoose');
 
 // productSetId and invoiceSetId are preety much useless for now
@@ -109,7 +110,7 @@ const SetProductList = async (req, res) => {
 
 
 
-// PUBLIC API
+// OWN API (Used in private)
 const GenerateInvoice = async (req, res) => {
     try{
         const { customerName, customerAddress, customerMobile, items } = req.body
@@ -122,8 +123,8 @@ const GenerateInvoice = async (req, res) => {
             "storeEmail" : store.storeEmail,
             "storeMobileNumber" : store.storeMobile,
             "customerName" : customerName,
-            "customerAddress" : "Manaitand, Dhanbad",
-            "customerMobile" : '+91 78584924692',
+            "customerAddress" : customerAddress,
+            "customerMobile" : customerMobile,
             "GSTIN" : store.gstin,
             "invoiceNumber" : invoice_id,
             "invoiceDate" : new Date().toLocaleDateString(),
@@ -153,10 +154,69 @@ const GenerateInvoice = async (req, res) => {
 
 
 
+
+// PUBLIC API
+const PublicGenerateInvoice = async (req, res) => {
+    try{
+        const authHeader = req.headers['authorization'];
+        console.log(authHeader, "Checking")
+        const { customerName, customerAddress, customerMobile, items } = req.body
+        const totalAmount = items.reduce((accumulator, currentValue) => accumulator + currentValue.price, 0);
+        const user = await User.findById(req.user_id)
+        const store = await Store.findById(new mongoose.Types.ObjectId(user.stores[0]))
+        invoice_id  = uuid.v4()
+        data = {
+            "storeName" : store.storeName,
+            "storeEmail" : store.storeEmail,
+            "storeMobileNumber" : store.storeMobile,
+            "customerName" : customerName,
+            "customerAddress" : customerAddress,
+            "customerMobile" : customerMobile,
+            "GSTIN" : store.gstin,
+            "invoiceNumber" : invoice_id,
+            "invoiceDate" : new Date().toLocaleDateString(),
+            "items" : items,
+            "totalAmount" : totalAmount,
+            "namePDF" : `Invoice_${invoice_id}`
+        }
+        
+        const result = await Store.updateOne(
+            { _id: (new mongoose.Types.ObjectId(user.stores[0])) },  // Filter by userId
+            { $push: { invoices:  invoice_id} }  // Push the new store to the stores array
+        );
+        const pdfBuffer = await generatePdf(data);
+        const bucketName = 'invoices-set1'; // Your Google Cloud Storage bucket name
+        const destinationBlobName = `Invoice_${req.user_id}/${invoice_id}.pdf`; 
+
+        uploadPdfToGCS(pdfBuffer, bucketName, destinationBlobName)
+            .then(() => console.log('Upload complete!'))
+            .catch(err => console.error('Error uploading file:', err));
+        
+        res.status(200).json({"invoice": []})  
+    }
+    catch(error) {
+        res.status(400).json({'error': error.message})
+    }
+}
+
+
+
+
+const test = async (req, res) => {
+    const authHeader = req.headers['authorization'];
+    console.log(authHeader)
+    const resu = await apiMiddleware(authHeader)
+    
+    res.status(200).json({"result": resu})
+}
+
+
 module.exports = {
     GenerateStore,
     GenerateAPIKey,
     SetFormat,
     SetProductList,
-    GenerateInvoice
+    GenerateInvoice,
+    test,
+    PublicGenerateInvoice
 }
