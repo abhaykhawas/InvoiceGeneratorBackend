@@ -13,7 +13,7 @@ mongoose.connect(MONGO_URI).then(() => console.log("MONGODB is Connected success
 app.use(
     cors({
         credentials: true,
-        origin: ['*'],
+        origin: ['http://localhost:3000'],
         methods: ['GET','POST','PUT', 'DELETE']
     })
 )

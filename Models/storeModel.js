@@ -40,6 +40,10 @@ const storeSchema = new mongoose.Schema({
     storeMobile: {
         type: String,
         required : true
+    },
+    gstin : {
+        type : String,
+        required: true
     }
 })
 

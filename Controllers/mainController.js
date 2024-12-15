@@ -52,7 +52,7 @@ const GenerateAPIKey = async (req, res) => {
 
 const SetFormat = async (req, res) => {
     try{
-        const { storeId, isInvoiceId, isStoreName, gstin, cin, pan, address, mobileNumber } = req.body;
+        const { storeId, isInvoiceId, isStoreName, gstin, cin, pan, address, mobileNumber, storeEmail } = req.body;
         const user = await User.findById(req.user_id)
         console.log(user.stores.includes(new mongoose.Types.ObjectId(storeId)))
         if (user.stores.includes(new mongoose.Types.ObjectId(storeId))){
@@ -65,6 +65,7 @@ const SetFormat = async (req, res) => {
             if (pan) invoiceFormatObj.pan = pan;
             if (address) invoiceFormatObj.address = address;
             if (mobileNumber) invoiceFormatObj.mobileNumber = mobileNumber;
+            if (storeEmail) invoiceFormatObj.storeEmail = storeEmail
 
             console.log(invoiceFormatObj)
 
@@ -199,7 +200,14 @@ const PublicGenerateInvoice = async (req, res) => {
     }
 }
 
-
+const checkLogin = async (req, res) => {
+    try{
+        res.status(200).json({"message": "loggedin"})
+    }
+    catch(error){
+        res.status(400).json({"error": error.message})
+    }
+}
 
 
 const test = async (req, res) => {
@@ -218,5 +226,6 @@ module.exports = {
     SetProductList,
     GenerateInvoice,
     test,
-    PublicGenerateInvoice
+    PublicGenerateInvoice,
+    checkLogin
 }
