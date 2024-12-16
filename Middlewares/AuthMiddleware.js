@@ -8,7 +8,7 @@ module.exports.userVerfication = (req,res, next) => {
     const token = req.cookies.token
     // const token = req.rawHeaders[req.rawHeaders.length-3].split('=')[1]
     if (!token){
-        return res.json({status: false})
+        return res.status(400).json({status: false})
     }
     jwt.verify(token, process.env.TOKEN_KEY, async (err, data) => {
         if(err) {
@@ -19,6 +19,6 @@ module.exports.userVerfication = (req,res, next) => {
             req.user_id = user._id;
             next();
         }
-        else return res.json({status: false})
+        else return res.status(400).json({status: false})
     })
 }
