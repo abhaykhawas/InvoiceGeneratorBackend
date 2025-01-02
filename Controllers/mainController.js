@@ -5,7 +5,7 @@ const {generateInvoiceSetId} = require('../util/invoiceSetId');
 const {generateProductSetId} = require('../util/productSetId');
 const {generatePdf, savePdfToMongoDB} = require('./test')
 const fs = require('fs');
-const { uploadPdfToGCS } = require('./test2')
+const { uploadPdfToGCS, getFileUri } = require('./test2')
 
 
 
@@ -153,7 +153,26 @@ const GenerateInvoice = async (req, res) => {
     }
 }
 
+const GetAllInvoiceId = async (req, res) => {
+    try{
+        const store = await Store.findOne({userId: req.user_id})
+        res.status(200).json({"Invoices": store.invoices})
+    }
+    catch(error) {
+        res.status(400).json({'error': error.message})
+    }
+}
 
+const GetPdfInvoice = async (req, res) => {
+    try{
+        const {invoiceId} = req.body
+        const invoiceURI = await getFileUri('invoices-set1', `Invoice_${req.user_id}/${invoiceId}`)
+        res.status(200).json({invoiceURI})
+    }
+    catch(error){
+        res.status(400).json({"error": error.message})
+    }
+}
 
 
 // PUBLIC API
@@ -227,5 +246,7 @@ module.exports = {
     GenerateInvoice,
     test,
     PublicGenerateInvoice,
-    checkLogin
+    checkLogin,
+    GetAllInvoiceId,
+    GetPdfInvoice
 }

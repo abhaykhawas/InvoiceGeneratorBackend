@@ -24,17 +24,28 @@ async function uploadPdfToGCS(pdfBuffer, bucketName, destinationBlobName) {
 //   console.log(`File uploaded to gs://${bucketName}/${destinationBlobName}`);
 }
 
-// Example usage
-// const pdfBuffer = fs.readFileSync(__dirname + '/Invoice_001.pdf', 'utf-8'); // Read the PDF file as a buffer from disk
-// const bucketName = 'invoices-set1'; // Your Google Cloud Storage bucket name
-// const destinationBlobName = 'Invoice/file.pdf'; // Destination path in the bucket
 
-// uploadPdfToGCS(pdfBuffer, bucketName, destinationBlobName)
-//   .then(() => console.log('Upload complete!'))
-//   .catch(err => console.error('Error uploading file:', err));
+async function getFileUri(bucketName, fileName) {
+  const file = storage.bucket(bucketName).file(fileName);
+
+  // Public URL Method
+  const publicUrl = `https://storage.googleapis.com/invoices-set1/${fileName}.pdf`;
+  return publicUrl
+
+  // Generating signed URI
+  // const expires = Date.now() + 1000 * 60 * 60 * 24
+  // const [signedURL] = await file.getSignedUrl({
+  //   action: 'read',
+  //   expires: expires,
+  //   contentType: 'application/pdf'
+  // });
+  // console.log(signedURL)
+  // return signedURL
+}
 
 
 
 module.exports = {
-    uploadPdfToGCS
+    uploadPdfToGCS,
+    getFileUri
 }
