@@ -1,4 +1,4 @@
-const { GenerateStore, GenerateAPIKey, SetFormat, SetProductList, GenerateInvoice, test, PublicGenerateInvoice, checkLogin, GetAllInvoiceId, GetPdfInvoice } = require('../Controllers/mainController')
+const { GenerateStore, GenerateAPIKey, SetFormat, SetProductList, GenerateInvoice, test, PublicGenerateInvoice, checkLogin, GetAllInvoiceId, GetPdfInvoice, GetGivenDate, GetInvoiceInfo } = require('../Controllers/mainController')
 const { userVerfication } = require('../Middlewares/AuthMiddleware')
 const { apiMiddleware } = require('../Middlewares/apiMiddleware');
 
@@ -23,5 +23,9 @@ router.get('/test', test)
 router.get('/get-all-invoice-id', userVerfication, GetAllInvoiceId)
 
 router.post('/get-pdf-invoice', userVerfication, GetPdfInvoice)
+
+router.post('/get-given-date', userVerfication, GetGivenDate)
+
+router.post('/get-invoice-info',userVerfication ,GetInvoiceInfo)
 
 module.exports = router;

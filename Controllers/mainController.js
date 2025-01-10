@@ -6,10 +6,16 @@ const {generateProductSetId} = require('../util/productSetId');
 const {generatePdf, savePdfToMongoDB} = require('./test')
 const fs = require('fs');
 const { uploadPdfToGCS, getFileUri } = require('./test2')
+const moment = require('moment');
 
 
 
 const mongoose = require('mongoose');
+
+function parseDate(dateStr) {
+    // Format is 'DD/MM/YYYY'
+    return moment(dateStr, 'DD/MM/YYYY').toDate();
+  }
 
 // productSetId and invoiceSetId are preety much useless for now
 const GenerateStore = async (req, res) => {
@@ -54,7 +60,6 @@ const SetFormat = async (req, res) => {
     try{
         const { storeId, isInvoiceId, isStoreName, gstin, cin, pan, address, mobileNumber, storeEmail } = req.body;
         const user = await User.findById(req.user_id)
-        console.log(user.stores.includes(new mongoose.Types.ObjectId(storeId)))
         if (user.stores.includes(new mongoose.Types.ObjectId(storeId))){
             const invoiceFormatObj = {};
 
@@ -66,8 +71,6 @@ const SetFormat = async (req, res) => {
             if (address) invoiceFormatObj.address = address;
             if (mobileNumber) invoiceFormatObj.mobileNumber = mobileNumber;
             if (storeEmail) invoiceFormatObj.storeEmail = storeEmail
-
-            console.log(invoiceFormatObj)
 
             const result = await Store.updateOne(
                 { _id: (new mongoose.Types.ObjectId(storeId)) },  // Filter by userId
@@ -115,7 +118,7 @@ const SetProductList = async (req, res) => {
 const GenerateInvoice = async (req, res) => {
     try{
         const { customerName, customerAddress, customerMobile, items } = req.body
-        const totalAmount = items.reduce((accumulator, currentValue) => accumulator + currentValue.price, 0);
+        const totalAmount = items.reduce((accumulator, currentValue) => accumulator + parseInt(currentValue.price)*parseInt(currentValue.qty), 0);
         const user = await User.findById(req.user_id)
         const store = await Store.findById(new mongoose.Types.ObjectId(user.stores[0]))
         invoice_id  = uuid.v4()
@@ -136,7 +139,7 @@ const GenerateInvoice = async (req, res) => {
         
         const result = await Store.updateOne(
             { _id: (new mongoose.Types.ObjectId(user.stores[0])) },  // Filter by userId
-            { $push: { invoices:  invoice_id} }  // Push the new store to the stores array
+            { $push: { invoices:  {'invoice_id' : invoice_id, 'customerName': customerName, 'customerMobile': customerMobile, 'invoiceDate': new Date().toLocaleDateString(), "items": items, 'totalAmount': totalAmount}} }  // Push the new store to the stores array
         );
         const pdfBuffer = await generatePdf(data);
         const bucketName = 'invoices-set1'; // Your Google Cloud Storage bucket name
@@ -156,7 +159,11 @@ const GenerateInvoice = async (req, res) => {
 const GetAllInvoiceId = async (req, res) => {
     try{
         const store = await Store.findOne({userId: req.user_id})
-        res.status(200).json({"Invoices": store.invoices})
+        let invoices = []
+        store.invoices.map((e) => {
+            invoices.push(e.invoice_id)
+        })
+        res.status(200).json({"Invoices": invoices})
     }
     catch(error) {
         res.status(400).json({'error': error.message})
@@ -175,11 +182,96 @@ const GetPdfInvoice = async (req, res) => {
 }
 
 
+const GetGivenDate = async (req, res) => {
+    try{
+        const { duration } = req.body
+        
+        if (!req.user_id || !duration) {
+            return res.status(400).json({ message: 'user_id and duration are required.' });
+        }
+        const userData = await Store.findOne({ userId: req.user_id.toString() });
+        if (!userData) {
+            return res.status(404).json({ message: 'User data not found.' });
+        }
+
+        const endDate = moment(); // Today's date
+        const startDate = moment().subtract(parseInt(duration), 'days');
+
+        
+
+        const filteredInvoices = userData.invoices.filter(invoice => {
+            const invoiceDate = parseDate(invoice.invoiceDate);
+            return invoiceDate >= startDate.toDate() && invoiceDate <= endDate.toDate();
+        });
+
+        const superFilterInvoices = []
+
+        filteredInvoices.map((e,i) => {
+            superFilterInvoices.push({
+                    key: e.invoice_id,
+                    sno: i+1,
+                    name: e.customerName,
+                    date: e.invoiceDate,
+                    purid: e.customerMobile,
+                    price: e.totalAmount
+            })
+        })
+
+        res.status(200).json({superFilterInvoices})
+    }
+    catch(error) {
+        res.status(400).json({"error": error.message})
+    }
+}
+
+
+const GetInvoiceInfo =  async (req, res) => {
+    try{
+        const { invoiceId, customerName, dateOfPurchase } = req.body
+        const userInvoice = await Store.findOne({ "userId" : req.user_id });
+        let matchedInvoice;
+        if (!userInvoice) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (invoiceId != '' && customerName == '' && dateOfPurchase == ''){
+            matchedInvoice = userInvoice.invoices.filter(invoice => invoice.invoice_id === invoiceId);
+
+        }
+        else if (invoiceId == '' && customerName != '' && dateOfPurchase == ''){
+            matchedInvoice = userInvoice.invoices.filter(invoice => invoice.customerName.toLowerCase().includes(customerName.toLowerCase()));
+        }
+        else if (invoiceId == '' && customerName == '' && dateOfPurchase != ''){
+            matchedInvoice = userInvoice.invoices.filter(invoice => invoice.invoiceDate === dateOfPurchase);
+        }
+        else{
+            throw("Provided more than one filter")  
+        }
+
+        const superFilterInvoices = []
+
+        matchedInvoice.map((e,i) => {
+            superFilterInvoices.push({
+                    key: e.invoice_id,
+                    sno: i+1,
+                    name: e.customerName,
+                    date: e.invoiceDate,
+                    purid: e.customerMobile,
+                    price: e.totalAmount
+            })
+        })
+
+        res.status(200).json({superFilterInvoices})
+    }
+    catch(error) {    
+        res.status(400).json(error.message ? {"error": error.message}:{"error": error})
+    }
+}
+
 // PUBLIC API
 const PublicGenerateInvoice = async (req, res) => {
     try{
         const authHeader = req.headers['authorization'];
-        console.log(authHeader, "Checking")
         const { customerName, customerAddress, customerMobile, items } = req.body
         const totalAmount = items.reduce((accumulator, currentValue) => accumulator + currentValue.price, 0);
         const user = await User.findById(req.user_id)
@@ -231,7 +323,6 @@ const checkLogin = async (req, res) => {
 
 const test = async (req, res) => {
     const authHeader = req.headers['authorization'];
-    console.log(authHeader)
     const resu = await apiMiddleware(authHeader)
     
     res.status(200).json({"result": resu})
@@ -248,5 +339,7 @@ module.exports = {
     PublicGenerateInvoice,
     checkLogin,
     GetAllInvoiceId,
-    GetPdfInvoice
+    GetPdfInvoice,
+    GetGivenDate,
+    GetInvoiceInfo
 }
